@@ -54,6 +54,8 @@ targets:
           - -lresolv
     dependencies:
       - framework: Frameworks/Libbox.xcframework
+      - sdk: UIKit.framework
+      - sdk: SystemConfiguration.framework
     entitlements:
       path: PacketTunnel/PacketTunnel.entitlements
       properties:
