@@ -1,0 +1,95 @@
+name: release-unsigned-ipa
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        default: v0.1.0-unsigned
+      prerelease:
+        description: Mark as prerelease
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and publish unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          brew update
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild build \
+            -project SwiftTunnel.xcodeproj \
+            -scheme SwiftTunnel \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -derivedDataPath build/DerivedData \
+            | tee build/xcodebuild-unsigned.log
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 2 -name 'SwiftTunnel.app' -type d | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "SwiftTunnel.app not found"
+            find build/DerivedData/Build/Products -maxdepth 4 -print || true
+            exit 1
+          fi
+          python3 Scripts/package_unsigned_ipa.py \
+            --app "$APP_PATH" \
+            --output build/SwiftTunnel-unsigned.ipa \
+            --overwrite
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          NOTES="Unsigned iOS IPA built from ${GITHUB_SHA}. This artifact must be signed externally before installing on iOS."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              build/SwiftTunnel-unsigned.ipa \
+              build/xcodebuild-unsigned.log \
+              --clobber
+          else
+            FLAGS=()
+            if [ "$PRERELEASE" = "true" ]; then
+              FLAGS+=(--prerelease)
+            fi
+            gh release create "$RELEASE_TAG" \
+              build/SwiftTunnel-unsigned.ipa \
+              build/xcodebuild-unsigned.log \
+              --title "SwiftTunnel ${RELEASE_TAG}" \
+              --notes "$NOTES" \
+              "${FLAGS[@]}"
+          fi
+

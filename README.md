@@ -79,6 +79,19 @@ python ~/.codex/skills/ios-ipa-builder/scripts/package_unsigned_ipa.py \
 
 The result is an unsigned IPA container. Final signing remains your external/on-device step.
 
+## GitHub Releases
+
+The repo includes two workflows:
+
+- `unsigned-ipa`: builds an unsigned IPA and uploads it as a workflow artifact.
+- `release-unsigned-ipa`: builds an unsigned IPA and publishes it to GitHub Releases.
+
+Run `release-unsigned-ipa` manually from the Actions tab and provide a tag such as:
+
+```text
+v0.1.1-unsigned
+```
+
 ## Core Integration
 
 The integration point is:
