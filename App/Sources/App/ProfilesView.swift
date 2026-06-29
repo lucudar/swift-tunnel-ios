@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ProfilesView: View {
     @EnvironmentObject private var vpn: VPNManager
+    @State private var isImporting = false
+    @State private var importText = ""
+    @State private var importError: String?
 
     var body: some View {
         NavigationStack {
@@ -28,13 +31,34 @@ struct ProfilesView: View {
             .navigationTitle("Nodes")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        addDemoProfile()
+                    Menu {
+                        Button {
+                            isImporting = true
+                        } label: {
+                            Label("Import link", systemImage: "link.badge.plus")
+                        }
+
+                        Button {
+                            addDemoProfile()
+                        } label: {
+                            Label("Add demo", systemImage: "plus")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Add node")
                 }
+            }
+            .sheet(isPresented: $isImporting) {
+                ImportProfileSheet(
+                    text: $importText,
+                    error: importError,
+                    onCancel: {
+                        isImporting = false
+                        importError = nil
+                    },
+                    onImport: importProfile
+                )
             }
         }
     }
@@ -48,11 +72,77 @@ struct ProfilesView: View {
             name: "New Node",
             server: "server.example.com",
             port: 443,
-            proto: .vless
+            proto: .vless,
+            credential: "00000000-0000-0000-0000-000000000000"
         )
         vpn.config.profiles.append(profile)
         vpn.config.activeProfileID = profile.id
         vpn.saveConfig()
+    }
+
+    private func importProfile() {
+        do {
+            let profile = try ProxyLinkParser.parse(importText)
+            vpn.config.profiles.append(profile)
+            vpn.config.activeProfileID = profile.id
+            vpn.saveConfig()
+            DebugLogger.shared.log(.info, source: "Profiles", "Imported \(profile.proto.rawValue) profile \(profile.name)")
+            importText = ""
+            importError = nil
+            isImporting = false
+        } catch {
+            importError = error.localizedDescription
+            DebugLogger.shared.log(.error, source: "Profiles", "Import failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+private struct ImportProfileSheet: View {
+    @Binding var text: String
+    let error: String?
+    let onCancel: () -> Void
+    let onImport: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    TextEditor(text: $text)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 180)
+                        .padding(10)
+                        .background(.quaternary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    if let error {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(STColor.warning)
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .navigationTitle("Import")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import", action: onImport)
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
 

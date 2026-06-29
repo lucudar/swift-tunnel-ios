@@ -11,6 +11,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         DebugLogger.shared.log(.info, source: "PacketTunnel", "Starting packet tunnel")
 
         let config = TunnelConfigurationStore.load()
+        let singBoxConfig = options?["configContent"] as? String
 
         guard config.profiles.isEmpty == false else {
             let error = TunnelProviderError.noProfiles
@@ -28,7 +29,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             }
 
             do {
-                let core = PlaceholderTunnelCore(packetFlow: self?.packetFlow, config: config)
+                let core = PlaceholderTunnelCore(
+                    packetFlow: self?.packetFlow,
+                    config: config,
+                    singBoxConfig: singBoxConfig
+                )
                 try core.start()
                 self?.core = core
                 DebugLogger.shared.log(.info, source: "PacketTunnel", "Tunnel core started")
@@ -110,10 +115,12 @@ private protocol TunnelCore {
 private final class PlaceholderTunnelCore: TunnelCore {
     private weak var packetFlow: NEPacketTunnelFlow?
     private let config: TunnelConfiguration
+    private let singBoxConfig: String?
 
-    init(packetFlow: NEPacketTunnelFlow?, config: TunnelConfiguration) {
+    init(packetFlow: NEPacketTunnelFlow?, config: TunnelConfiguration, singBoxConfig: String?) {
         self.packetFlow = packetFlow
         self.config = config
+        self.singBoxConfig = singBoxConfig
     }
 
     func start() throws {
@@ -130,6 +137,16 @@ private final class PlaceholderTunnelCore: TunnelCore {
             source: "TunnelCore",
             "Placeholder core selected \(profile.proto.rawValue) \(profile.server):\(profile.port). Integrate sing-box/Xray here."
         )
+
+        if let singBoxConfig {
+            DebugLogger.shared.log(
+                .info,
+                source: "TunnelCore",
+                "Generated sing-box config: \(singBoxConfig.count) bytes"
+            )
+        } else {
+            DebugLogger.shared.log(.warning, source: "TunnelCore", "Missing generated sing-box config")
+        }
     }
 
     func stop() {

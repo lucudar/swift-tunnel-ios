@@ -1,33 +1,54 @@
 import SwiftUI
 
 struct DebugView: View {
+    @EnvironmentObject private var vpn: VPNManager
     @State private var entries: [DebugEntry] = []
+    @State private var configPreview: String?
 
     var body: some View {
         NavigationStack {
             ZStack {
                 AppBackground()
 
-                List(entries) { entry in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(entry.level.rawValue.uppercased())
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(color(for: entry.level))
-                            Text(entry.source)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(entry.date, style: .time)
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                List {
+                    Section {
+                        Button {
+                            generateConfigPreview()
+                        } label: {
+                            Label("Preview sing-box config", systemImage: "doc.text.magnifyingglass")
                         }
 
-                        Text(entry.message)
-                            .font(.footnote)
-                            .textSelection(.enabled)
+                        if let configPreview {
+                            Text(configPreview)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                                .lineLimit(14)
+                        }
                     }
-                    .padding(.vertical, 4)
+
+                    Section {
+                        ForEach(entries) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(entry.level.rawValue.uppercased())
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(color(for: entry.level))
+                                    Text(entry.source)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(entry.date, style: .time)
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Text(entry.message)
+                                    .font(.footnote)
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
                 }
                 .scrollContentBackground(.hidden)
                 .overlay {
@@ -78,6 +99,19 @@ struct DebugView: View {
             return STColor.warning
         case .error:
             return STColor.danger
+        }
+    }
+
+    private func generateConfigPreview() {
+        do {
+            let content = try SingBoxConfigurationBuilder.build(from: vpn.config)
+            configPreview = content
+            DebugLogger.shared.log(.info, source: "Debug", "Generated sing-box config preview: \(content.count) bytes")
+            entries = DebugLogger.shared.recentEntries()
+        } catch {
+            configPreview = error.localizedDescription
+            DebugLogger.shared.log(.error, source: "Debug", "Config preview failed: \(error.localizedDescription)")
+            entries = DebugLogger.shared.recentEntries()
         }
     }
 }

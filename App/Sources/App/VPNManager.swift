@@ -48,11 +48,14 @@ final class VPNManager: ObservableObject {
     func connect() async {
         do {
             try TunnelConfigurationStore.save(config)
+            let singBoxConfig = try SingBoxConfigurationBuilder.build(from: config)
             let manager = try await loadedManager()
             manager.isEnabled = true
             try await manager.saveToPreferences()
             try await manager.loadFromPreferences()
-            try manager.connection.startVPNTunnel()
+            try manager.connection.startVPNTunnel(options: [
+                "configContent": singBoxConfig as NSString
+            ])
             DebugLogger.shared.log(.info, source: "VPNManager", "Requested VPN start")
             refreshStatus()
         } catch {

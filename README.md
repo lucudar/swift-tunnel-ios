@@ -11,6 +11,8 @@ This is not a finished VPN engine yet. The app and Packet Tunnel extension are r
 - Shared app group config store.
 - JSONL debug logger shared between app and extension.
 - Packet tunnel skeleton with DNS protection, basic route settings, MTU, and explicit core integration point.
+- sing-box JSON generation for VLESS, Trojan, and Shadowsocks profiles.
+- Import UI for `vless://`, `trojan://`, and `ss://` links.
 - XcodeGen project definition.
 
 ## Requirements

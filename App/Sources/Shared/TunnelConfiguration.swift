@@ -25,6 +25,10 @@ struct ProxyProfile: Identifiable, Codable, Equatable {
     var server: String
     var port: Int
     var proto: ProxyProtocol
+    var credential: String
+    var sni: String?
+    var flow: String?
+    var method: String?
     var latencyMS: Int?
     var lastError: String?
 
@@ -34,6 +38,10 @@ struct ProxyProfile: Identifiable, Codable, Equatable {
         server: String,
         port: Int,
         proto: ProxyProtocol,
+        credential: String = "",
+        sni: String? = nil,
+        flow: String? = nil,
+        method: String? = nil,
         latencyMS: Int? = nil,
         lastError: String? = nil
     ) {
@@ -42,6 +50,10 @@ struct ProxyProfile: Identifiable, Codable, Equatable {
         self.server = server
         self.port = port
         self.proto = proto
+        self.credential = credential
+        self.sni = sni
+        self.flow = flow
+        self.method = method
         self.latencyMS = latencyMS
         self.lastError = lastError
     }
@@ -60,8 +72,15 @@ struct TunnelConfiguration: Codable, Equatable {
         dnsProtectionEnabled: true,
         killSwitchEnabled: true,
         profiles: [
-            ProxyProfile(name: "Auto Fast", server: "example.com", port: 443, proto: .vless, latencyMS: 38),
-            ProxyProfile(name: "Mobile QUIC", server: "edge.example.com", port: 443, proto: .hysteria2, latencyMS: 52)
+            ProxyProfile(
+                name: "Demo VLESS",
+                server: "example.com",
+                port: 443,
+                proto: .vless,
+                credential: "00000000-0000-0000-0000-000000000000",
+                sni: "example.com",
+                latencyMS: 38
+            )
         ]
     )
 }
@@ -96,4 +115,3 @@ enum TunnelConfigurationStore {
             .appendingPathComponent(AppConstants.configFileName)
     }
 }
-
