@@ -276,9 +276,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
     }
 
     private func makeDNSSettings(options: LibboxTunOptionsProtocol) throws -> NEDNSSettings? {
-        guard let dnsServer = try options.getDNSServerAddress()?.value else {
-            return nil
-        }
+        let dnsServer = try options.getDNSServerAddress().value
         guard dnsServer.isEmpty == false else {
             return nil
         }
