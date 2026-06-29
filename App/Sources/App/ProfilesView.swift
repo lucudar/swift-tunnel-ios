@@ -9,46 +9,20 @@ struct ProfilesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AnimatedTunnelBackground()
+                AppBackground()
 
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(vpn.config.profiles) { profile in
-                            ProfileRow(
-                                profile: profile,
-                                isSelected: selectedID == profile.id
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                vpn.config.activeProfileID = profile.id
-                                vpn.saveConfig()
-                            }
-                        }
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        nodeList
                     }
-                    .padding(18)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 116)
                 }
             }
-            .navigationTitle("Nodes")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button {
-                            isImporting = true
-                        } label: {
-                            Label("Import link", systemImage: "link.badge.plus")
-                        }
-
-                        Button {
-                            addDemoProfile()
-                        } label: {
-                            Label("Add demo", systemImage: "plus")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add node")
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isImporting) {
                 ImportProfileSheet(
                     text: $importText,
@@ -59,6 +33,50 @@ struct ProfilesView: View {
                     },
                     onImport: importProfile
                 )
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Nodes")
+                    .font(.system(size: 30, weight: .semibold, design: .rounded))
+                Text("\(vpn.config.profiles.count) configured")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            MinimalIconButton(systemName: "link.badge.plus", accessibilityLabel: "Import node") {
+                isImporting = true
+            }
+
+            MinimalIconButton(systemName: "plus", accessibilityLabel: "Add demo node") {
+                addDemoProfile()
+            }
+        }
+    }
+
+    private var nodeList: some View {
+        VStack(spacing: 10) {
+            if vpn.config.profiles.isEmpty {
+                EmptyNodeState()
+                    .panel()
+            } else {
+                ForEach(vpn.config.profiles) { profile in
+                    ProfileRow(
+                        profile: profile,
+                        isSelected: selectedID == profile.id,
+                        isConnected: vpn.status.isActive && selectedID == profile.id
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        vpn.config.activeProfileID = profile.id
+                        vpn.saveConfig()
+                    }
+                }
             }
         }
     }
@@ -97,6 +115,19 @@ struct ProfilesView: View {
     }
 }
 
+private struct EmptyNodeState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("No nodes")
+                .font(.headline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct ImportProfileSheet: View {
     @Binding var text: String
     let error: String?
@@ -110,10 +141,11 @@ private struct ImportProfileSheet: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     TextEditor(text: $text)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(minHeight: 180)
-                        .padding(10)
-                        .background(.quaternary)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(minHeight: 190)
+                        .padding(12)
+                        .scrollContentBackground(.hidden)
+                        .background(Color.primary.opacity(0.055))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -125,6 +157,7 @@ private struct ImportProfileSheet: View {
                             Text(error)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
@@ -133,6 +166,7 @@ private struct ImportProfileSheet: View {
                 .padding(20)
             }
             .navigationTitle("Import")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -149,53 +183,49 @@ private struct ImportProfileSheet: View {
 private struct ProfileRow: View {
     let profile: ProxyProfile
     let isSelected: Bool
+    let isConnected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: isSelected
-                                    ? [STColor.accent, STColor.accent2]
-                                    : [Color.secondary.opacity(0.22), Color.secondary.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 42, height: 42)
-                    Image(systemName: protocolIcon)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(isSelected ? .black : .secondary)
-                }
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(iconBackground)
+                    .frame(width: 44, height: 44)
+                Image(systemName: protocolIcon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(isSelected ? selectedIconColor : Color.secondary)
+            }
 
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
                     Text(profile.name)
                         .font(.system(.headline, design: .rounded, weight: .semibold))
                         .lineLimit(1)
-                    Text("\(profile.server):\(profile.port)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                    if isConnected {
+                        StatusDot(isActive: true)
+                    }
                 }
 
-                Spacer()
+                Text("\(profile.server):\(profile.port)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
-                if isSelected {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(STColor.accent)
-                }
-            }
-
-            HStack(spacing: 8) {
-                badge(profile.proto.rawValue, icon: "network")
-                badge(latencyText, icon: "waveform.path.ecg")
-                if let sni = profile.sni, !sni.isEmpty {
-                    badge(sni, icon: "globe")
+                HStack(spacing: 7) {
+                    CapsuleBadge(text: profile.proto.rawValue, systemName: "network")
+                    CapsuleBadge(text: latencyText, systemName: "timer")
+                    if let sni = profile.sni, !sni.isEmpty {
+                        CapsuleBadge(text: sni, systemName: "globe")
+                    }
                 }
             }
+
+            Spacer(minLength: 8)
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(isSelected ? STColor.accent : Color.secondary.opacity(0.45))
         }
         .panel()
         .overlay(alignment: .leading) {
@@ -205,24 +235,17 @@ private struct ProfileRow: View {
         }
     }
 
-    private func badge(_ text: String, icon: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.caption2)
-            Text(text)
-                .font(.caption2.monospaced())
-                .lineLimit(1)
-        }
-        .foregroundStyle(.secondary)
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(.quaternary)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    private var iconBackground: Color {
+        isSelected ? STColor.accent : Color.primary.opacity(0.065)
+    }
+
+    private var selectedIconColor: Color {
+        .black
     }
 
     private var latencyText: String {
         guard let latency = profile.latencyMS else {
-            return "not tested"
+            return "--"
         }
 
         return "\(latency) ms"
@@ -233,11 +256,11 @@ private struct ProfileRow: View {
         case .vless:
             return "lock.shield"
         case .hysteria2, .tuic:
-            return "bolt.fill"
+            return "bolt"
         case .trojan:
             return "shield.lefthalf.filled"
         case .shadowsocks:
-            return "circle.hexagongrid.fill"
+            return "circle.hexagongrid"
         }
     }
 }
