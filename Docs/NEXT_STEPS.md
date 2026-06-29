@@ -27,6 +27,8 @@ go run ./cmd/internal/build_libbox -target apple -platform ios
 
 That produces `Libbox.xcframework`, which should be added to both the app and Packet Tunnel extension targets. The app already generates sing-box JSON through `SingBoxConfigurationBuilder`.
 
+This repository includes `build-libbox-ios.yml` to test that framework build independently before wiring it into the app.
+
 ## MVP Scope
 
 - Import one profile manually.
