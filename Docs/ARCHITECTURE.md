@@ -12,7 +12,7 @@ PacketTunnel extension
   -> TunnelConfigurationStore
   -> SingBoxConfigurationBuilder
   -> TunnelCore adapter
-  -> proxy core
+  -> Libbox / sing-box core
   -> NEPacketTunnelFlow
 ```
 
@@ -36,7 +36,7 @@ PacketTunnel extension
 
 ## sing-box Status
 
-The app now generates sing-box JSON for:
+The app generates sing-box JSON for:
 
 - TUN inbound
 - DNS protection
@@ -45,7 +45,9 @@ The app now generates sing-box JSON for:
 - Trojan outbound
 - Shadowsocks outbound
 
-The current tunnel still uses `PlaceholderTunnelCore`. Replace it with a Libbox adapter after adding `Libbox.xcframework` to the Xcode project.
+The Packet Tunnel extension uses `LibboxTunnelCore` when `Libbox.xcframework` is available. CI builds the framework from `SagerNet/sing-box` before generating the Xcode project. If the framework is missing locally, the extension falls back to `PlaceholderTunnelCore` so project files can still be inspected.
+
+`LibboxPlatformAdapter` is responsible for translating sing-box TUN options into `NEPacketTunnelNetworkSettings`, returning the TUN file descriptor, and feeding default-interface updates from `NWPathMonitor`.
 
 ## Debug Priorities
 

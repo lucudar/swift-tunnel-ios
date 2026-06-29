@@ -10,22 +10,24 @@ Check these in order:
 4. `AppConstants.tunnelBundleIdentifier` matches the extension bundle ID.
 5. The Debug tab shows logs from both the app and extension.
 
-## Expected MVP Behavior
+## Expected Engine Behavior
 
-The current tunnel uses `PlaceholderTunnelCore`. It validates the iOS VPN plumbing and logs startup, but it does not proxy traffic yet.
+When `Libbox.xcframework` is present in `Frameworks/`, the Packet Tunnel extension starts sing-box through `LibboxTunnelCore`.
 
 Expected result:
 
 - iOS asks to add VPN configuration.
 - Tapping connect starts the Packet Tunnel extension.
 - Debug logs show `Starting packet tunnel`.
-- Debug logs show placeholder core warning.
+- Debug logs show `Started sing-box ...`.
+- Traffic is routed through the active VLESS, Trojan, or Shadowsocks profile.
+
+If `Libbox.xcframework` is missing in a local build, the extension uses `PlaceholderTunnelCore`. That fallback only validates VPN plumbing and does not proxy traffic.
 
 ## Common Problems
 
 - `permission denied`: missing Network Extension entitlement.
 - `plugin failed`: extension bundle ID mismatch or extension not embedded.
 - no shared logs: App Group mismatch.
-- VPN starts but no traffic works: expected until real core adapter is integrated.
+- VPN starts but no traffic works: check that `Libbox.xcframework` exists before `xcodegen generate`, then check the Debug tab for `Libbox` startup or config validation errors.
 - signing fails: bundle IDs, App Group, or provisioning profiles do not match.
-

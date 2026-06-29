@@ -20,28 +20,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             return
         }
 
-        let settings = makeNetworkSettings(config: config)
-        setTunnelNetworkSettings(settings) { [weak self] error in
-            if let error {
-                DebugLogger.shared.log(.error, source: "PacketTunnel", "Network settings failed: \(error.localizedDescription)")
-                completionHandler(error)
-                return
-            }
-
-            do {
-                let core = PlaceholderTunnelCore(
-                    packetFlow: self?.packetFlow,
-                    config: config,
-                    singBoxConfig: singBoxConfig
-                )
-                try core.start()
-                self?.core = core
-                DebugLogger.shared.log(.info, source: "PacketTunnel", "Tunnel core started")
-                completionHandler(nil)
-            } catch {
-                DebugLogger.shared.log(.error, source: "PacketTunnel", "Core start failed: \(error.localizedDescription)")
-                completionHandler(error)
-            }
+        do {
+            let core = try makeTunnelCore(config: config, singBoxConfig: singBoxConfig)
+            try core.start()
+            self.core = core
+            DebugLogger.shared.log(.info, source: "PacketTunnel", "Tunnel core started")
+            completionHandler(nil)
+        } catch {
+            DebugLogger.shared.log(.error, source: "PacketTunnel", "Core start failed: \(error.localizedDescription)")
+            completionHandler(error)
         }
     }
 
@@ -63,7 +50,35 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         completionHandler?(Data("ok".utf8))
     }
 
-    private func makeNetworkSettings(config: TunnelConfiguration) -> NEPacketTunnelNetworkSettings {
+    override func sleep(completionHandler: @escaping () -> Void) {
+        core?.sleep()
+        completionHandler()
+    }
+
+    override func wake() {
+        core?.wake()
+    }
+
+    func applyTunnelNetworkSettings(_ settings: NEPacketTunnelNetworkSettings?) throws {
+        try runBlocking { [weak self] in
+            guard let self else {
+                return
+            }
+            try await self.setTunnelNetworkSettingsAsync(settings)
+        }
+    }
+
+    private func makeTunnelCore(config: TunnelConfiguration, singBoxConfig: String?) throws -> TunnelCore {
+        let configContent = try singBoxConfig ?? SingBoxConfigurationBuilder.build(from: config)
+
+        #if canImport(Libbox)
+        return LibboxTunnelCore(provider: self, configContent: configContent)
+        #else
+        return PlaceholderTunnelCore(provider: self, config: config, singBoxConfig: configContent)
+        #endif
+    }
+
+    fileprivate func makeFallbackNetworkSettings(config: TunnelConfiguration) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "198.18.0.1")
         settings.mtu = 1280
 
@@ -91,11 +106,24 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
         return settings
     }
+
+    private func setTunnelNetworkSettingsAsync(_ settings: NEPacketTunnelNetworkSettings?) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            setTunnelNetworkSettings(settings) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
 }
 
-private enum TunnelProviderError: LocalizedError {
+enum TunnelProviderError: LocalizedError {
     case noProfiles
     case coreNotIntegrated
+    case missingSingBoxConfig
 
     var errorDescription: String? {
         switch self {
@@ -103,28 +131,37 @@ private enum TunnelProviderError: LocalizedError {
             return "No proxy profiles are configured."
         case .coreNotIntegrated:
             return "Tunnel core is not integrated yet."
+        case .missingSingBoxConfig:
+            return "Missing generated sing-box config."
         }
     }
 }
 
-private protocol TunnelCore {
+protocol TunnelCore {
     func start() throws
     func stop()
+    func sleep()
+    func wake()
+}
+
+extension TunnelCore {
+    func sleep() {}
+    func wake() {}
 }
 
 private final class PlaceholderTunnelCore: TunnelCore {
-    private weak var packetFlow: NEPacketTunnelFlow?
+    private weak var provider: PacketTunnelProvider?
     private let config: TunnelConfiguration
     private let singBoxConfig: String?
 
-    init(packetFlow: NEPacketTunnelFlow?, config: TunnelConfiguration, singBoxConfig: String?) {
-        self.packetFlow = packetFlow
+    init(provider: PacketTunnelProvider?, config: TunnelConfiguration, singBoxConfig: String?) {
+        self.provider = provider
         self.config = config
         self.singBoxConfig = singBoxConfig
     }
 
     func start() throws {
-        guard packetFlow != nil else {
+        guard let provider else {
             throw TunnelProviderError.coreNotIntegrated
         }
 
@@ -132,10 +169,12 @@ private final class PlaceholderTunnelCore: TunnelCore {
             throw TunnelProviderError.noProfiles
         }
 
+        try provider.applyTunnelNetworkSettings(provider.makeFallbackNetworkSettings(config: config))
+
         DebugLogger.shared.log(
             .warning,
             source: "TunnelCore",
-            "Placeholder core selected \(profile.proto.rawValue) \(profile.server):\(profile.port). Integrate sing-box/Xray here."
+            "Placeholder core selected for \(profile.proto.rawValue) \(profile.server):\(profile.port). Libbox is not linked in this build."
         )
 
         if let singBoxConfig {

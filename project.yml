@@ -50,6 +50,10 @@ targets:
         INFOPLIST_FILE: PacketTunnel/Info.plist
         CODE_SIGN_STYLE: Automatic
         APPLICATION_EXTENSION_API_ONLY: YES
+        OTHER_LDFLAGS:
+          - -lresolv
+    dependencies:
+      - framework: Frameworks/Libbox.xcframework
     entitlements:
       path: PacketTunnel/PacketTunnel.entitlements
       properties:

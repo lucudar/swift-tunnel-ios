@@ -65,13 +65,16 @@ enum SingBoxConfigurationBuilder {
         [
             "servers": [
                 [
+                    "type": "https",
                     "tag": "remote",
-                    "address": "https://1.1.1.1/dns-query",
+                    "server": "1.1.1.1",
+                    "server_port": 443,
+                    "path": "/dns-query",
                     "detour": "proxy"
                 ],
                 [
+                    "type": "local",
                     "tag": "local",
-                    "address": "local",
                     "detour": "direct"
                 ]
             ],
@@ -99,8 +102,7 @@ enum SingBoxConfigurationBuilder {
             "mtu": 1280,
             "auto_route": true,
             "strict_route": config.killSwitchEnabled,
-            "sniff": true,
-            "sniff_override_destination": true
+            "stack": "gvisor"
         ]
     }
 
@@ -126,6 +128,7 @@ enum SingBoxConfigurationBuilder {
             "uuid": profile.credential,
             "packet_encoding": "xudp"
         ]
+        outbound.merge(dialerOptions()) { current, _ in current }
 
         outbound["tls"] = [
             "enabled": true,
@@ -144,7 +147,7 @@ enum SingBoxConfigurationBuilder {
     }
 
     private static func trojan(profile: ProxyProfile) -> [String: Any] {
-        [
+        var outbound: [String: Any] = [
             "type": "trojan",
             "tag": "proxy",
             "server": profile.server,
@@ -159,10 +162,12 @@ enum SingBoxConfigurationBuilder {
                 ]
             ]
         ]
+        outbound.merge(dialerOptions()) { current, _ in current }
+        return outbound
     }
 
     private static func shadowsocks(profile: ProxyProfile) -> [String: Any] {
-        [
+        var outbound: [String: Any] = [
             "type": "shadowsocks",
             "tag": "proxy",
             "server": profile.server,
@@ -170,10 +175,40 @@ enum SingBoxConfigurationBuilder {
             "method": profile.method ?? "2022-blake3-aes-128-gcm",
             "password": profile.credential
         ]
+        outbound.merge(dialerOptions()) { current, _ in current }
+        return outbound
+    }
+
+    private static func dialerOptions() -> [String: Any] {
+        [
+            "connect_timeout": "8s",
+            "tcp_fast_open": true,
+            "tcp_multi_path": true,
+            "udp_fragment": false,
+            "domain_resolver": [
+                "server": "local",
+                "strategy": "prefer_ipv4"
+            ],
+            "network_strategy": "hybrid",
+            "fallback_delay": "300ms"
+        ]
     }
 
     private static func route(config: TunnelConfiguration) -> [String: Any] {
         var rules: [[String: Any]] = [
+            [
+                "action": "sniff",
+                "sniffer": [
+                    "tls",
+                    "http",
+                    "quic"
+                ],
+                "timeout": "300ms"
+            ],
+            [
+                "protocol": "dns",
+                "action": "hijack-dns"
+            ],
             [
                 "ip_is_private": true,
                 "outbound": config.routeMode == .global ? "proxy" : "direct"
@@ -191,8 +226,13 @@ enum SingBoxConfigurationBuilder {
         return [
             "rules": rules,
             "auto_detect_interface": true,
+            "default_domain_resolver": [
+                "server": "local",
+                "strategy": "prefer_ipv4"
+            ],
+            "default_network_strategy": "hybrid",
+            "default_fallback_delay": "300ms",
             "final": config.routeMode == .direct ? "direct" : "proxy"
         ]
     }
 }
-

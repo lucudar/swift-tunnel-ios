@@ -1,8 +1,6 @@
 # SwiftTunnel
 
-Minimal iOS VPN/proxy client scaffold focused on clean code, debug-first behavior, and a black/white SwiftUI interface.
-
-This is not a finished VPN engine yet. The app and Packet Tunnel extension are ready for integrating `sing-box`, `Xray-core`, or another iOS-compatible proxy core.
+Minimal iOS VPN/proxy client focused on clean code, debug-first behavior, a black/white SwiftUI interface, and a sing-box engine through `Libbox`.
 
 ## Current Features
 
@@ -12,6 +10,8 @@ This is not a finished VPN engine yet. The app and Packet Tunnel extension are r
 - JSONL debug logger shared between app and extension.
 - Packet tunnel skeleton with DNS protection, basic route settings, MTU, and explicit core integration point.
 - sing-box JSON generation for VLESS, Trojan, and Shadowsocks profiles.
+- `LibboxTunnelCore` integration for the Packet Tunnel extension when `Libbox.xcframework` is available.
+- iOS platform adapter for TUN settings, DNS hijack, default-interface monitoring, and tunnel file descriptor handoff.
 - Import UI for `vless://`, `trojan://`, and `ss://` links.
 - XcodeGen project definition.
 
@@ -26,6 +26,7 @@ This is not a finished VPN engine yet. The app and Packet Tunnel extension are r
 
 ```bash
 cd ios-vpn-client
+# Build or download Libbox.xcframework into Frameworks/Libbox.xcframework first.
 xcodegen generate
 open SwiftTunnel.xcodeproj
 ```
@@ -88,6 +89,8 @@ The repo includes two workflows:
 - `unsigned-ipa`: builds an unsigned IPA and uploads it as a workflow artifact.
 - `release-unsigned-ipa`: builds an unsigned IPA and publishes it to GitHub Releases.
 
+Both workflows build `Libbox.xcframework` from `SagerNet/sing-box@v1.13.14` before generating the Xcode project. The framework is not committed because it is large.
+
 Run `release-unsigned-ipa` manually from the Actions tab and provide a tag such as:
 
 ```text
@@ -96,18 +99,12 @@ v0.1.1-unsigned
 
 ## Core Integration
 
-The integration point is:
+The main integration points are:
 
 ```text
 PacketTunnel/Sources/PacketTunnel/PacketTunnelProvider.swift
+PacketTunnel/Sources/PacketTunnel/LibboxTunnelCore.swift
+PacketTunnel/Sources/PacketTunnel/LibboxPlatformAdapter.swift
 ```
 
-Replace `PlaceholderTunnelCore` with an adapter around the chosen core:
-
-- read `TunnelConfiguration`
-- generate core config
-- start core with `packetFlow`
-- forward logs to `DebugLogger`
-- stop core reliably in `stopTunnel`
-
-Keep the app UI independent from the core. The UI should edit `TunnelConfiguration`; the extension should be the only process starting the networking engine.
+The app UI stays independent from the core. The UI edits `TunnelConfiguration`; the extension generates sing-box config, starts Libbox, applies TUN settings, forwards logs to `DebugLogger`, and stops the core in `stopTunnel`.

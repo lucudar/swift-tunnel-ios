@@ -20,7 +20,9 @@ jobs:
   build-release:
     name: Build and publish unsigned IPA
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 60
+    env:
+      SING_BOX_REF: v1.13.14
 
     steps:
       - name: Checkout
@@ -30,6 +32,32 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
+
+      - name: Checkout sing-box
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ env.SING_BOX_REF }}
+          path: sing-box
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sing-box/go.mod
+
+      - name: Build iOS Libbox
+        working-directory: sing-box
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+          go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.13
+          gomobile init
+          go run ./cmd/internal/build_libbox -target apple -platform ios
+          test -d Libbox.xcframework
+          mkdir -p "$GITHUB_WORKSPACE/Frameworks"
+          rm -rf "$GITHUB_WORKSPACE/Frameworks/Libbox.xcframework"
+          mv Libbox.xcframework "$GITHUB_WORKSPACE/Frameworks/Libbox.xcframework"
 
       - name: Install XcodeGen
         run: |
@@ -92,4 +120,3 @@ jobs:
               --notes "$NOTES" \
               "${FLAGS[@]}"
           fi
-

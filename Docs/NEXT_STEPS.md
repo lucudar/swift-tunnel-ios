@@ -1,13 +1,11 @@
 # Next Steps
 
-1. Move this project to macOS.
-2. Install XcodeGen.
-3. Configure Apple bundle IDs, App Group, and Packet Tunnel entitlement.
-4. Generate the Xcode project.
-5. Build the app target and extension target.
-6. Package unsigned IPA if signing happens outside Xcode.
-7. Add `Libbox.xcframework` or another proxy core framework.
-8. Replace `PlaceholderTunnelCore` with the real core adapter.
+1. Configure Apple bundle IDs, App Group, and Packet Tunnel entitlement.
+2. Build the unsigned IPA from GitHub Actions.
+3. Sign the IPA externally with matching Network Extension and App Group entitlements.
+4. Test connect/disconnect on a real iPhone with one known-good VLESS, Trojan, or Shadowsocks profile.
+5. Use the Debug tab to inspect Libbox startup and config validation errors.
+6. Add latency testing and auto-select after real traffic is stable.
 
 ## Recommended Core Order
 
@@ -25,9 +23,12 @@ Upstream sing-box builds the Apple framework with:
 go run ./cmd/internal/build_libbox -target apple -platform ios
 ```
 
-That produces `Libbox.xcframework`, which should be added to both the app and Packet Tunnel extension targets. The app already generates sing-box JSON through `SingBoxConfigurationBuilder`.
+That produces `Libbox.xcframework`, which is linked by the Packet Tunnel extension target. The app already generates sing-box JSON through `SingBoxConfigurationBuilder`.
 
-This repository includes `build-libbox-ios.yml` to test that framework build independently before wiring it into the app.
+This repository includes:
+
+- `build-libbox-ios.yml` to test the framework build independently.
+- `unsigned-ipa.yml` and `release-unsigned-ipa.yml` to build Libbox, generate the Xcode project, build the app, and package an unsigned IPA.
 
 ## MVP Scope
 

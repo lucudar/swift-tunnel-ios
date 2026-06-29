@@ -2,6 +2,7 @@
 DerivedData/
 build/
 artifacts/
+Frameworks/
 *.xcworkspace
 *.xcodeproj
 *.xcarchive
