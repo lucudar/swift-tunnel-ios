@@ -9,10 +9,10 @@ struct ProfilesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppBackground()
+                AnimatedTunnelBackground()
 
-                List {
-                    Section {
+                ScrollView {
+                    VStack(spacing: 12) {
                         ForEach(vpn.config.profiles) { profile in
                             ProfileRow(
                                 profile: profile,
@@ -25,8 +25,8 @@ struct ProfilesView: View {
                             }
                         }
                     }
+                    .padding(18)
                 }
-                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Nodes")
             .toolbar {
@@ -151,36 +151,81 @@ private struct ProfileRow: View {
     let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(isSelected ? STColor.accent : Color.secondary.opacity(0.2))
-                    .frame(width: 34, height: 34)
-                Image(systemName: protocolIcon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(isSelected ? .black : .secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: isSelected
+                                    ? [STColor.accent, STColor.accent2]
+                                    : [Color.secondary.opacity(0.22), Color.secondary.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 42, height: 42)
+                    Image(systemName: protocolIcon)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(isSelected ? .black : .secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(profile.name)
+                        .font(.system(.headline, design: .rounded, weight: .semibold))
+                        .lineLimit(1)
+                    Text("\(profile.server):\(profile.port)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(STColor.accent)
+                }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(profile.name)
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .lineLimit(1)
-                Text("\(profile.proto.rawValue)  \(profile.server):\(profile.port)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-
-            Spacer()
-
-            if let latency = profile.latencyMS {
-                Text("\(latency) ms")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(latency < 80 ? STColor.accent : STColor.warning)
+            HStack(spacing: 8) {
+                badge(profile.proto.rawValue, icon: "network")
+                badge(latencyText, icon: "waveform.path.ecg")
+                if let sni = profile.sni, !sni.isEmpty {
+                    badge(sni, icon: "globe")
+                }
             }
         }
+        .panel()
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? STColor.accent : Color.clear)
+                .frame(width: 3)
+        }
+    }
+
+    private func badge(_ text: String, icon: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.caption2)
+            Text(text)
+                .font(.caption2.monospaced())
+                .lineLimit(1)
+        }
+        .foregroundStyle(.secondary)
         .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var latencyText: String {
+        guard let latency = profile.latencyMS else {
+            return "not tested"
+        }
+
+        return "\(latency) ms"
     }
 
     private var protocolIcon: String {

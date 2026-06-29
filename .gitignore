@@ -1,6 +1,7 @@
 .DS_Store
 DerivedData/
 build/
+artifacts/
 *.xcworkspace
 *.xcodeproj
 *.xcarchive
@@ -9,4 +10,3 @@ build/
 *.xcuserstate
 xcuserdata/
 .swiftpm/
-

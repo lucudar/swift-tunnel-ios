@@ -5,10 +5,10 @@ struct HomeView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
+            AnimatedTunnelBackground()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 18) {
                     header
                     connectionPanel
                     metrics
@@ -22,34 +22,38 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("SwiftTunnel")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-            Text("Fast secure proxy tunnel")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .center, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.primary)
+                    .frame(width: 44, height: 44)
+                Image(systemName: "bolt.horizontal.fill")
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(Color(uiColor: .systemBackground))
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SwiftTunnel")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                Text(vpn.status.isActive ? "encrypted route is live" : "ready for fast route")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(vpn.status.isActive ? STColor.accent : Color.secondary.opacity(0.32))
+                .frame(width: 10, height: 10)
+                .shadow(color: vpn.status.isActive ? STColor.accent.opacity(0.8) : .clear, radius: 10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var connectionPanel: some View {
         VStack(spacing: 18) {
-            ZStack {
-                Circle()
-                    .stroke(vpn.status.isActive ? STColor.accent.opacity(0.35) : Color.secondary.opacity(0.25), lineWidth: 14)
-                    .frame(width: 190, height: 190)
-
-                Circle()
-                    .fill(vpn.status.isActive ? STColor.accent : Color.primary)
-                    .frame(width: 132, height: 132)
-                    .shadow(color: vpn.status.isActive ? STColor.accent.opacity(0.35) : .clear, radius: 22)
-
-                Image(systemName: vpn.status.isActive ? "power.circle.fill" : "power.circle")
-                    .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(vpn.status.isActive ? .black : Color(uiColor: .systemBackground))
-            }
-            .contentShape(Circle())
-            .onTapGesture {
+            ConnectOrb(isActive: vpn.status.isActive) {
                 if vpn.status.isActive {
                     vpn.disconnect()
                 } else {
@@ -60,12 +64,20 @@ struct HomeView: View {
 
             VStack(spacing: 6) {
                 Text(vpn.status.title)
-                    .font(.system(.title3, design: .rounded, weight: .semibold))
+                    .font(.system(.title2, design: .rounded, weight: .bold))
                 Text(activeProfileText)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
+            }
+
+            ThroughputStrip(isActive: vpn.status.isActive)
+
+            HStack(spacing: 10) {
+                MetricPill(title: "Up", value: vpn.status.isActive ? "3.8 MB/s" : "--")
+                MetricPill(title: "Down", value: vpn.status.isActive ? "24.2 MB/s" : "--")
+                MetricPill(title: "Ping", value: activeLatencyText)
             }
         }
         .frame(maxWidth: .infinity)
@@ -102,6 +114,7 @@ struct HomeView: View {
                     vpn.saveConfig()
                 }
             ))
+            .tint(STColor.accent)
 
             Toggle("Kill switch", isOn: Binding(
                 get: { vpn.config.killSwitchEnabled },
@@ -110,6 +123,7 @@ struct HomeView: View {
                     vpn.saveConfig()
                 }
             ))
+            .tint(STColor.accent)
         }
         .panel()
     }
@@ -138,5 +152,19 @@ struct HomeView: View {
 
         return profile.name
     }
-}
 
+    private var activeLatencyText: String {
+        let profile: ProxyProfile?
+        if let id = vpn.config.activeProfileID {
+            profile = vpn.config.profiles.first(where: { $0.id == id }) ?? vpn.config.profiles.first
+        } else {
+            profile = vpn.config.profiles.first
+        }
+
+        guard let latency = profile?.latencyMS else {
+            return "--"
+        }
+
+        return "\(latency) ms"
+    }
+}
