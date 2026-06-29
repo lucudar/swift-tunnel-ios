@@ -25,7 +25,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
             throw platformError("Packet tunnel provider is gone.")
         }
 
-        let settings = makeNetworkSettings(options: options)
+        let settings = try makeNetworkSettings(options: options)
         networkSettings = settings
         try provider.applyTunnelNetworkSettings(settings)
 
@@ -204,7 +204,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         try provider.applyTunnelNetworkSettings(settings)
     }
 
-    private func makeNetworkSettings(options: LibboxTunOptionsProtocol) -> NEPacketTunnelNetworkSettings {
+    private func makeNetworkSettings(options: LibboxTunOptionsProtocol) throws -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
 
         guard options.getAutoRoute() else {
@@ -214,7 +214,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         settings.mtu = NSNumber(value: options.getMTU())
         settings.ipv4Settings = makeIPv4Settings(options: options)
         settings.ipv6Settings = makeIPv6Settings(options: options)
-        settings.dnsSettings = makeDNSSettings(options: options)
+        settings.dnsSettings = try makeDNSSettings(options: options)
 
         if options.isHTTPProxyEnabled() {
             settings.proxySettings = makeProxySettings(options: options)
@@ -275,8 +275,10 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         return settings
     }
 
-    private func makeDNSSettings(options: LibboxTunOptionsProtocol) -> NEDNSSettings? {
-        let dnsServer = options.getDNSServerAddress().value
+    private func makeDNSSettings(options: LibboxTunOptionsProtocol) throws -> NEDNSSettings? {
+        guard let dnsServer = try options.getDNSServerAddress()?.value else {
+            return nil
+        }
         guard dnsServer.isEmpty == false else {
             return nil
         }
