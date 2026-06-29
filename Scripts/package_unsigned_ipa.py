@@ -41,11 +41,55 @@ def validate_app(app: Path) -> dict:
     except Exception as exc:
         raise SystemExit(f"Could not parse Info.plist: {exc}") from exc
 
-    executable = info.get("CFBundleExecutable")
-    if executable and not (app / executable).exists():
-        raise SystemExit(f"CFBundleExecutable is missing from bundle: {executable}")
+    validate_bundle_metadata(app, info, expected_package_type="APPL")
+    validate_nested_extensions(app)
 
     return info
+
+
+def validate_bundle_metadata(bundle: Path, info: dict, expected_package_type: str) -> None:
+    required_keys = [
+        "CFBundleExecutable",
+        "CFBundleIdentifier",
+        "CFBundleInfoDictionaryVersion",
+        "CFBundleName",
+        "CFBundlePackageType",
+        "CFBundleShortVersionString",
+        "CFBundleVersion",
+    ]
+    missing_keys = [key for key in required_keys if not info.get(key)]
+    if missing_keys:
+        missing = ", ".join(missing_keys)
+        raise SystemExit(f"{bundle.name} Info.plist is missing required keys: {missing}")
+
+    package_type = info["CFBundlePackageType"]
+    if package_type != expected_package_type:
+        raise SystemExit(
+            f"{bundle.name} has CFBundlePackageType={package_type}, expected {expected_package_type}"
+        )
+
+    executable = info["CFBundleExecutable"]
+    if not (bundle / executable).exists():
+        raise SystemExit(f"CFBundleExecutable is missing from bundle: {bundle / executable}")
+
+
+def validate_nested_extensions(app: Path) -> None:
+    plugins = app / "PlugIns"
+    if not plugins.exists():
+        return
+
+    for appex in sorted(plugins.glob("*.appex")):
+        info_plist = appex / "Info.plist"
+        if not info_plist.exists():
+            raise SystemExit(f"Nested extension Info.plist not found: {info_plist}")
+
+        try:
+            with info_plist.open("rb") as handle:
+                info = plistlib.load(handle)
+        except Exception as exc:
+            raise SystemExit(f"Could not parse nested extension Info.plist: {exc}") from exc
+
+        validate_bundle_metadata(appex, info, expected_package_type="XPC!")
 
 
 def copy_app(src: Path, dst: Path) -> None:
@@ -100,4 +144,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Cancelled", file=sys.stderr)
         raise SystemExit(130)
-
