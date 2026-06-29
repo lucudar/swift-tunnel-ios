@@ -25,7 +25,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
             throw platformError("Packet tunnel provider is gone.")
         }
 
-        let settings = try makeNetworkSettings(options: options)
+        let settings = makeNetworkSettings(options: options)
         networkSettings = settings
         try provider.applyTunnelNetworkSettings(settings)
 
@@ -106,7 +106,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         }
 
         let path = pathMonitor.currentPath
-        guard path.status != .unsatisfied else {
+        guard path.status != Network.NWPath.Status.unsatisfied else {
             return NetworkInterfaceIterator([])
         }
 
@@ -204,7 +204,7 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         try provider.applyTunnelNetworkSettings(settings)
     }
 
-    private func makeNetworkSettings(options: LibboxTunOptionsProtocol) throws -> NEPacketTunnelNetworkSettings {
+    private func makeNetworkSettings(options: LibboxTunOptionsProtocol) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
 
         guard options.getAutoRoute() else {
@@ -276,14 +276,8 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
     }
 
     private func makeDNSSettings(options: LibboxTunOptionsProtocol) -> NEDNSSettings? {
-        let dnsServer: String
-        do {
-            guard let value = try options.getDNSServerAddress()?.value, value.isEmpty == false else {
-                return nil
-            }
-            dnsServer = value
-        } catch {
-            DebugLogger.shared.log(.warning, source: "Libbox", "DNS server from TUN options failed: \(error.localizedDescription)")
+        let dnsServer = options.getDNSServerAddress().value
+        guard dnsServer.isEmpty == false else {
             return nil
         }
 
@@ -350,8 +344,8 @@ final class LibboxPlatformAdapter: NSObject, LibboxPlatformInterfaceProtocol {
         return values
     }
 
-    private func updateDefaultInterface(listener: LibboxInterfaceUpdateListenerProtocol, path: NWPath) {
-        guard path.status != .unsatisfied, let defaultInterface = path.availableInterfaces.first else {
+    private func updateDefaultInterface(listener: LibboxInterfaceUpdateListenerProtocol, path: Network.NWPath) {
+        guard path.status != Network.NWPath.Status.unsatisfied, let defaultInterface = path.availableInterfaces.first else {
             listener.updateDefaultInterface(
                 "",
                 interfaceIndex: -1,
