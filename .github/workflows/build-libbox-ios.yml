@@ -36,6 +36,9 @@ jobs:
       - name: Build iOS Libbox
         working-directory: sing-box
         run: |
+          go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+          go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.13
+          gomobile init
           go run ./cmd/internal/build_libbox -target apple -platform ios
           test -d Libbox.xcframework
 
@@ -45,4 +48,3 @@ jobs:
           name: Libbox-ios-xcframework
           path: sing-box/Libbox.xcframework
           if-no-files-found: error
-
